@@ -1,0 +1,14 @@
+{
+    "$schema": "https://schemas.kicad.org/erc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-09-14T23:56:08-0500",
+    "kicad_version": "9.0.5",
+    "sheets": [
+        {
+            "path": "/",
+            "uuid_path": "/e27a4652-4200-45bf-b6cd-c503f054daf0",
+            "violations": []
+        }
+    ],
+    "source": "raspberry_pi_nas_nvme.kicad_sch"
+}

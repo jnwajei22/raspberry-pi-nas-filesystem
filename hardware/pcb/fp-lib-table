@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "RaspberryPiNAS")(type "KiCad")(uri "${KIPRJMOD}/libraries/footprints/RaspberryPiNAS.pretty")(options "")(descr "Repository-local NAS exact-part footprints"))
+)

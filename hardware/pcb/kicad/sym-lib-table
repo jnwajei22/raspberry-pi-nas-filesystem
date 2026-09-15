@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "RaspberryPiNAS_Parts")(type "KiCad")(uri "${KIPRJMOD}/../libraries/symbols/RaspberryPiNAS_Parts.kicad_sym")(options "")(descr "Repository-local NAS exact-part symbols"))
+)

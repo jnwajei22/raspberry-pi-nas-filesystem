@@ -1,4 +1,4 @@
-"""Generate the repository-local first-pass KiCad 9 schematic.
+"""Generate the repository-local reviewed KiCad 9 schematic.
 
 The generator deliberately embeds every schematic symbol so the design can be
 parsed in a clean KiCad installation while exact-part libraries remain local.
@@ -149,26 +149,6 @@ def make_flash_symbol() -> str:
     return base
 
 
-def placeholder_symbol() -> str:
-    return r'''(symbol "PowerPath_Placeholder"
-		(pin_names (offset 1.016))
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board no)
-		(property "Reference" "U" (at 0 7.62 0) (effects (font (size 1.27 1.27))))
-		(property "Value" "POWER_PATH_TBD" (at 0 5.08 0) (effects (font (size 1.27 1.27))))
-		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-		(property "Description" "Unselected dual-input power-path controller placeholder; no internal electrical connection is implied" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-		(symbol "PowerPath_Placeholder_0_1"
-			(rectangle (start -10.16 3.81) (end 10.16 -3.81) (stroke (width 0.254) (type default)) (fill (type background))))
-		(symbol "PowerPath_Placeholder_1_1"
-			(pin power_in line (at -12.7 2.54 0) (length 2.54) (name "USB5V_IN" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
-			(pin power_in line (at -12.7 -2.54 0) (length 2.54) (name "AUX5V_IN" (effects (font (size 1.27 1.27)))) (number "2" (effects (font (size 1.27 1.27)))))
-			(pin power_out line (at 12.7 0 180) (length 2.54) (name "5V_SYS_OUT" (effects (font (size 1.27 1.27)))) (number "3" (effects (font (size 1.27 1.27))))))
-		(embedded_fonts no))'''
-
-
 def snap_symbol_pins(block: str, grid: float = 1.27) -> str:
     def repl(match: re.Match[str]) -> str:
         x = round(float(match.group(2)) / grid) * grid
@@ -188,9 +168,6 @@ def prepare_libraries() -> dict[str, str]:
     if "W25Q16JVSSIQ" in existing:
         local = local.replace(existing["W25Q16JVSSIQ"], "")
         changed = True
-    if "PowerPath_Placeholder" in existing:
-        local = local.replace(existing["PowerPath_Placeholder"], placeholder_symbol())
-        changed = True
     if "JMicron_JMS583-QHFA0A" in existing:
         repaired = snap_symbol_pins(existing["JMicron_JMS583-QHFA0A"])
         local = local.replace(existing["JMicron_JMS583-QHFA0A"], repaired)
@@ -204,8 +181,6 @@ def prepare_libraries() -> dict[str, str]:
     additions = []
     if 'symbol "W25Q16JVSNIQ"' not in local:
         additions.append(make_flash_symbol())
-    if 'symbol "PowerPath_Placeholder"' not in local:
-        additions.append(placeholder_symbol())
     if additions:
         close = local.rfind(")")
         local = local[:close].rstrip() + "\n\t" + "\n\t".join(a.replace("\n", "\n\t") for a in additions) + "\n)\n"
@@ -409,17 +384,19 @@ def build_schematic(local: dict[str, str]) -> str:
     s.add_symbol("RaspberryPiNAS_Parts:JMicron_JMS583-QHFA0A", "U1", "JMS583-QHFA0A", 112, 88,
                  "RaspberryPiNAS:JMicron_JMS583-QHFA0A", "../libraries/datasheets/JMicron_JMS583_datasheet_rev2.1.pdf")
     jms = {
-        "1": "5V_SYS", "2": "1V2_JMS", "3": "SPI_MISO", "4": "SPI_SCK", "5": "SPI_MOSI",
-        "6": "3V3_JMS", "7": "SPI_CS_N", "11": "3V3_JMS", "15": "JMS_RST_N", "16": "USB5V",
-        "17": "USB_DM", "18": "USB_DP", "19": "3V3_JMS", "20": "1V2_JMS",
+        # VDDREG and VBUS are USB-powered. LXO/L1 generate the 1.0 V core/analog rail.
+        "1": "USB5V", "2": "1V0_JMS", "3": "SPI_MISO", "4": "SPI_SCK", "5": "SPI_MOSI",
+        "6": "3V3_JMS", "7": "SPI_CS_N", "8": "ACT_LED_N", "10": "USB_VBUS_SENSE",
+        "11": "3V3_JMS", "15": "JMS_RST_N", "16": "USB5V",
+        "17": "USB_DM", "18": "USB_DP", "19": "3V3_JMS", "20": "1V0_JMS",
         "21": "JMS_USB_TX1_P", "22": "JMS_USB_TX1_N", "23": "JMS_USB_TX2_N", "24": "JMS_USB_TX2_P",
-        "25": "1V2_JMS", "26": "USB_TX1_P", "27": "USB_TX1_N", "28": "USB_TX2_N", "29": "USB_TX2_P",
-        "30": "1V2_JMS", "31": "1V2_JMS", "32": "3V3_JMS", "33": "1V2_JMS",
-        "34": "PCIE_RX1_N", "35": "PCIE_RX1_P", "36": "1V2_JMS", "37": "JMS_PCIE_TX1_N", "38": "JMS_PCIE_TX1_P",
-        "39": "JMS_REXT", "40": "1V2_JMS", "41": "PCIE_RX0_N", "42": "PCIE_RX0_P", "43": "1V2_JMS",
-        "44": "JMS_PCIE_TX0_N", "45": "JMS_PCIE_TX0_P", "46": "1V2_JMS", "47": "PCIE_REFCLK_N", "48": "PCIE_REFCLK_P",
-        "49": "1V2_JMS", "50": "XTAL_IN", "51": "XTAL_OUT", "52": "3V3_JMS", "53": "1V2_JMS",
-        "54": "PCIE_PERST_N", "55": "PCIE_CLKREQ_N", "56": "3V3_JMS", "57": "ACT_LED_N", "60": "GND",
+        "25": "1V0_JMS", "26": "USB_TX1_P", "27": "USB_TX1_N", "28": "USB_TX2_N", "29": "USB_TX2_P",
+        "30": "1V0_JMS", "31": "1V0_JMS", "32": "3V3_JMS", "33": "1V0_JMS",
+        "34": "PCIE_RX1_N", "35": "PCIE_RX1_P", "36": "1V0_JMS", "37": "JMS_PCIE_TX1_N", "38": "JMS_PCIE_TX1_P",
+        "39": "JMS_REXT", "40": "1V0_JMS", "41": "PCIE_RX0_N", "42": "PCIE_RX0_P", "43": "1V0_JMS",
+        "44": "JMS_PCIE_TX0_N", "45": "JMS_PCIE_TX0_P", "46": "1V0_JMS", "47": "PCIE_REFCLK_N", "48": "PCIE_REFCLK_P",
+        "49": "1V0_JMS", "50": "XTAL_IN", "51": "XTAL_OUT", "52": "3V3_JMS", "53": "1V0_JMS",
+        "54": "PCIE_PERST_N", "55": "PCIE_CLKREQ_N", "56": "3V3_JMS", "60": "GND",
         "61": "CC2", "62": "CC1", "63": "GND", "64": "JMS_LXO", "65": "GND",
     }
     s.connect("U1", jms)
@@ -436,6 +413,15 @@ def build_schematic(local: dict[str, str]) -> str:
     s.add_symbol("RaspberryPiNAS_Parts:Abracon_ABM8-25.000MHZ-B2-T", "Y1", "ABM8-25.000MHZ-B2-T", 154, 48,
                  "RaspberryPiNAS:Abracon_ABM8-25.000MHZ-B2-T", "../libraries/datasheets/Abracon_ABM8_datasheet.pdf")
     s.connect("Y1", {"1": "XTAL_IN", "2": "GND", "3": "XTAL_OUT", "4": "GND"})
+    # ABM8 CL=18 pF. With 3 pF estimated combined pin/trace stray, equal 30 pF
+    # capacitors give CL = (30 pF * 30 pF)/(30 pF + 30 pF) + 3 pF = 18 pF.
+    for ref, net, x in (("C24", "XTAL_IN", 146), ("C25", "XTAL_OUT", 162)):
+        s.add_symbol("Device:C", ref, "30pF C0G 5%", x, 62,
+                     "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder")
+        s.connect(ref, {"1": net, "2": "GND"})
+    s.add_symbol("Device:R", "R8", "510k", 178, 48,
+                 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    s.connect("R8", {"1": "XTAL_IN", "2": "XTAL_OUT"})
 
     s.add_symbol("RaspberryPiNAS_Parts:W25Q16JVSNIQ", "U6", "W25Q16JVSNIQ TR", 158, 82,
                  "RaspberryPiNAS:Winbond_W25Q16JVSNIQ_SOIC8_150mil",
@@ -450,24 +436,38 @@ def build_schematic(local: dict[str, str]) -> str:
     s.add_symbol("Device:R", "R1", "12k 1%", 148, 112, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     s.connect("R1", {"1": "JMS_REXT", "2": "GND"})
     s.add_symbol("Device:L", "L1", "4.7uH", 166, 112, "Inductor_SMD:L_1210_3225Metric_Pad1.42x2.65mm_HandSolder")
-    s.connect("L1", {"1": "JMS_LXO", "2": "1V2_JMS"})
-    s.add_symbol("Device:R", "R2", "10k VERIFY", 184, 112, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    s.connect("L1", {"1": "JMS_LXO", "2": "1V0_JMS"})
+    # RST is active low. The datasheet specifies 120-500 ms to reach 1.77 V.
+    # For 3.3 V, 330k/1uF reaches 1.77 V at -RC*ln(1-1.77/3.3) = 254 ms nominal.
+    s.add_symbol("Device:R", "R2", "330k 1%", 184, 112, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     s.connect("R2", {"1": "JMS_RST_N", "2": "3V3_JMS"})
-    s.add_symbol("Device:R", "R3", "1k VERIFY", 154, 128, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    s.add_symbol("Device:C", "C26", "1uF X7R 10%", 196, 112,
+                 "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder")
+    s.connect("C26", {"1": "JMS_RST_N", "2": "GND"})
+    s.add_symbol("Device:R", "R3", "1k", 154, 128, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     s.connect("R3", {"1": "3V3_JMS", "2": "ACT_LED_A"})
     s.add_symbol("Device:LED", "D1", "ACTIVITY GREEN", 174, 128, "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder")
     s.connect("D1", {"1": "ACT_LED_N", "2": "ACT_LED_A"})
 
+    # GPIO4 is the default active-low activity LED output: 3V3 -> R3 -> LED A/K -> GPIO4.
+    # GPIO6 receives a divided copy of USB VBUS for explicit cable-power sensing.
+    s.add_symbol("Device:R", "R9", "100k 1%", 190, 128,
+                 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    s.connect("R9", {"1": "USB5V", "2": "USB_VBUS_SENSE"})
+    s.add_symbol("Device:R", "R10", "100k 1%", 202, 128,
+                 "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    s.connect("R10", {"1": "USB_VBUS_SENSE", "2": "GND"})
+
     # Representative local bypassing on both JMS-generated rails.
     for i, (value, net, x) in enumerate((
         ("100nF", "3V3_JMS", 115), ("1uF", "3V3_JMS", 125), ("4.7uF", "3V3_JMS", 135),
-        ("100nF", "1V2_JMS", 145), ("1uF", "1V2_JMS", 155), ("4.7uF", "1V2_JMS", 165)), 1):
+        ("100nF", "1V0_JMS", 145), ("1uF", "1V0_JMS", 155), ("4.7uF", "1V0_JMS", 165)), 1):
         ref = f"C{i + 4}"
         s.add_symbol("Device:C", ref, value, x, 174, "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder")
         s.connect(ref, {"1": net, "2": "GND"})
 
-    s.add_text("VERIFY AGAINST JMS583 REFERENCE DESIGN BEFORE PCB RELEASE", 92, 36, 1.3, True)
-    s.add_text("JMS583 public pin table used. Confirm EP grounding, reset pull-up, crystal load network, internal-regulator rail topology and LED polarity.", 92, 40, 1.0)
+    s.add_text("JMS583 CORRECTIVE REVIEW APPLIED — SEE schematic_review.md", 92, 36, 1.3, True)
+    s.add_text("1V0 core/analog rail; EP and TME grounded; 330k/1uF reset; GPIO4 active-low LED; calculated 30pF crystal loads.", 92, 40, 1.0)
     s.add_text("USB-C orientation: A-side TX1/B-side TX2 feed JMS RX1/RX2; JMS TX1/TX2 feed B-side RX1/A-side RX2.", 15, 136, 1.0)
 
     # M.2 M-key connector: PCIe lanes 0/1 only. M.2 PET is endpoint TX into JMS RX; PER is endpoint RX from JMS TX.
@@ -495,19 +495,17 @@ def build_schematic(local: dict[str, str]) -> str:
                      "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder")
         s.connect(ref, {"1": raw, "2": net})
 
-    # Power path is deliberately a non-functional placeholder until an actual controller is selected.
+    # Split supplies: USB5V powers only JMS583 circuitry; AUX5V powers only the NVMe buck.
+    # Grounds are common. AUX5V must be valid before enumeration if an SSD is expected.
     s.add_symbol("Connector_Generic:Conn_01x02", "J2", "AUX5V INPUT — CONNECTOR TBD", 28, 218,
-                 "", "", "Auxiliary 5V connector electrical and mechanical selection is pending", on_board=False)
+                 "", "", "Auxiliary 5V connector electrical and mechanical selection is pending")
     s.connect("J2", {"1": "AUX5V", "2": "GND"})
-    s.add_symbol("RaspberryPiNAS_Parts:PowerPath_Placeholder", "U5", "POWER_PATH_TBD", 72, 218,
-                 "", "", "Select reverse-current-blocking dual-input power mux before PCB release", in_bom=False, on_board=False, dnp=True)
-    s.connect("U5", {"1": "USB5V", "2": "AUX5V", "3": "5V_SYS"})
-    s.add_text("POWER-PATH PLACEHOLDER — NO USB5V/AUX5V SHORT IS PRESENT", 15, 194, 1.25, True)
-    s.add_text("Select a reverse-current-blocking 5 V power mux / ideal-diode solution and rated AUX connector before PCB release.", 15, 198, 1.0)
+    s.add_text("SPLIT POWER: USB5V -> JMS583; AUX5V -> NVMe 3V3 buck; COMMON GND", 15, 194, 1.25, True)
+    s.add_text("AUX5V and 3V3_NVME must be valid before USB enumeration when SSD access is required.", 15, 198, 1.0)
 
     # Power flags express external sources for ERC; they do not imply a copper short.
     for i, (net, x) in enumerate((("USB5V", 20), ("AUX5V", 35), ("GND", 50),
-                                  ("1V2_JMS", 65), ("3V3_NVME", 80)), 1):
+                                  ("1V0_JMS", 65), ("3V3_NVME", 80)), 1):
         ref = f"#FLG0{i:02d}"
         s.add_symbol("power:PWR_FLAG", ref, "PWR_FLAG", x, 205, "", "", in_bom=False, on_board=False)
         s.connect(ref, {"1": net})
@@ -515,12 +513,12 @@ def build_schematic(local: dict[str, str]) -> str:
     # TPS54302 5 V to 3.3 V reference network per TI Table 7-2 (Rev. C, March 2026).
     s.add_symbol("RaspberryPiNAS_Parts:TPS54302DDCR", "U7", "TPS54302DDCR", 130, 225,
                  "RaspberryPiNAS:TPS54302DDCR_DDC0006A", "../libraries/datasheets/TI_TPS54302_datasheet.pdf")
-    s.connect("U7", {"1": "GND", "2": "BUCK_SW", "3": "5V_SYS", "4": "BUCK_FB", "5": "5V_SYS", "6": "BUCK_BOOT"})
+    s.connect("U7", {"1": "GND", "2": "BUCK_SW", "3": "AUX5V", "4": "BUCK_FB", "5": "AUX5V", "6": "BUCK_BOOT"})
 
     power_parts = [
-        ("C15", "Device:C", "10uF", 98, 240, "5V_SYS", "GND"),
-        ("C16", "Device:C", "100nF", 108, 240, "5V_SYS", "GND"),
-        ("C17", "Device:C", "47uF", 118, 240, "5V_SYS", "GND"),
+        ("C15", "Device:C", "10uF", 98, 240, "AUX5V", "GND"),
+        ("C16", "Device:C", "100nF", 108, 240, "AUX5V", "GND"),
+        ("C17", "Device:C", "47uF", 118, 240, "AUX5V", "GND"),
         ("C18", "Device:C", "100nF", 145, 240, "BUCK_BOOT", "BUCK_SW"),
         ("L2", "Device:L", "6.8uH / >=3A", 160, 225, "BUCK_SW", "3V3_NVME"),
         ("R6", "Device:R", "100k 1%", 180, 215, "3V3_NVME", "BUCK_FB"),
@@ -540,7 +538,7 @@ def build_schematic(local: dict[str, str]) -> str:
         s.connect(ref, {"1": n1, "2": n2})
 
     s.add_text("TPS54302: 6.8 uH, 44 uF output, 100k/22.1k divider and 47 pF feed-forward follow TI's 3.3 V table.", 95, 258, 1.0)
-    s.add_text("Inductor/capacitor voltage, ripple-current, DC-bias and thermal ratings require final MPN selection.", 95, 263, 1.0)
+    s.add_text("TPS54302 is limited to 3 A maximum; verify SSD peak/transient demand before release.", 95, 263, 1.0)
     return s.render()
 
 

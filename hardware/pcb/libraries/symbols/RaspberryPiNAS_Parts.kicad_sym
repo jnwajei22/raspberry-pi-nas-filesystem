@@ -3527,23 +3527,7 @@
 		)
 	)
 	
-	(symbol "PowerPath_Placeholder"
-		(pin_names (offset 1.016))
-		(exclude_from_sim no)
-		(in_bom no)
-		(on_board no)
-		(property "Reference" "U" (at 0 7.62 0) (effects (font (size 1.27 1.27))))
-		(property "Value" "POWER_PATH_TBD" (at 0 5.08 0) (effects (font (size 1.27 1.27))))
-		(property "Footprint" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-		(property "Datasheet" "" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-		(property "Description" "Unselected dual-input power-path controller placeholder; no internal electrical connection is implied" (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-		(symbol "PowerPath_Placeholder_0_1"
-			(rectangle (start -10.16 3.81) (end 10.16 -3.81) (stroke (width 0.254) (type default)) (fill (type background))))
-		(symbol "PowerPath_Placeholder_1_1"
-			(pin power_in line (at -12.7 2.54 0) (length 2.54) (name "USB5V_IN" (effects (font (size 1.27 1.27)))) (number "1" (effects (font (size 1.27 1.27)))))
-			(pin power_in line (at -12.7 -2.54 0) (length 2.54) (name "AUX5V_IN" (effects (font (size 1.27 1.27)))) (number "2" (effects (font (size 1.27 1.27)))))
-			(pin power_out line (at 12.7 0 180) (length 2.54) (name "5V_SYS_OUT" (effects (font (size 1.27 1.27)))) (number "3" (effects (font (size 1.27 1.27))))))
-		(embedded_fonts no))
+	
 	(symbol "W25Q16JVSNIQ"
 			(exclude_from_sim no)
 			(in_bom yes)

@@ -250,6 +250,7 @@ class Schematic:
         in_bom: bool = True,
         on_board: bool = True,
         dnp: bool = False,
+        property_y_shift: float = 0.0,
     ) -> None:
         x = round(x / 1.27) * 1.27
         y = round(y / 1.27) * 1.27
@@ -270,8 +271,8 @@ class Schematic:
 \t\t(on_board {"yes" if on_board else "no"})
 \t\t(dnp {"yes" if dnp else "no"})
 \t\t(uuid "{comp_uuid}")
-\t\t(property "Reference" "{esc(ref)}" (at {x:g} {y-4:g} 0) (effects (font (size 1.27 1.27))))
-\t\t(property "Value" "{esc(value)}" (at {x:g} {y-2:g} 0) (effects (font (size 1.27 1.27))))
+\t\t(property "Reference" "{esc(ref)}" (at {x:g} {y-4+property_y_shift:g} 0) (effects (font (size 1.27 1.27))))
+\t\t(property "Value" "{esc(value)}" (at {x:g} {y-2+property_y_shift:g} 0) (effects (font (size 1.27 1.27))))
 \t\t(property "Footprint" "{esc(footprint)}" (at {x:g} {y:g} 0) (effects (font (size 1.27 1.27)) (hide yes)))
 \t\t(property "Datasheet" "{esc(datasheet)}" (at {x:g} {y:g} 0) (effects (font (size 1.27 1.27)) (hide yes)))
 \t\t(property "Description" "{esc(description)}" (at {x:g} {y:g} 0) (effects (font (size 1.27 1.27)) (hide yes)))
@@ -291,10 +292,15 @@ class Schematic:
         if key in self.label_keys:
             return
         self.label_keys.add(key)
+        # Point labels away from the symbol body. Pin rotation describes the
+        # direction from the connection point into the symbol, so the label
+        # uses the opposite direction for clear, outward-facing text.
+        pin_rotation = self.components[ref]["pins"][str(pin)][2]
+        label_rotation = (pin_rotation + 180) % 360 if pin_rotation in (0, 180) else 0
         self.items.append(
             f'''\t(global_label "{net}"
 \t\t(shape bidirectional)
-\t\t(at {x:g} {y:g} 0)
+\t\t(at {x:g} {y:g} {label_rotation:g})
 \t\t(effects (font (size 1.0 1.0)) (justify left))
 \t\t(uuid "{uid()}")
 \t\t(property "Intersheetrefs" "${{INTERSHEET_REFS}}" (at {x:g} {y:g} 0) (effects (font (size 1.0 1.0)) (hide yes)))
@@ -352,8 +358,8 @@ def build_schematic(local: dict[str, str]) -> str:
     s.add_text("RASPBERRY PI NAS — USB 3.x TO NVMe BRIDGE", 15, 15, 2.2, True)
     s.add_text("Board target: 90 mm x 90 mm, 4 layers. SCHEMATIC ONLY — NO PCB LAYOUT.", 15, 20, 1.2)
     s.add_text("1. USB INTERFACE", 15, 30, 1.8, True)
-    s.add_text("2. JMS583 BRIDGE", 92, 30, 1.8, True)
-    s.add_text("3. NVME / M.2", 195, 30, 1.8, True)
+    s.add_text("2. JMS583 BRIDGE", 105, 30, 1.8, True)
+    s.add_text("3. NVME / M.2", 270, 30, 1.8, True)
     s.add_text("4. POWER", 15, 185, 1.8, True)
 
     # USB receptacle and three four-channel ESD arrays (all SS pairs plus USB2 pair).
@@ -369,9 +375,9 @@ def build_schematic(local: dict[str, str]) -> str:
     s.connect("J1", usb)
 
     for ref, x, nets in (
-        ("U2", 28, ("USB_TX1_P", "USB_TX1_N", "USB_RX1_P", "USB_RX1_N")),
-        ("U3", 55, ("USB_TX2_P", "USB_TX2_N", "USB_RX2_P", "USB_RX2_N")),
-        ("U4", 82, ("USB_DP", "USB_DM", None, None)),
+        ("U2", 20, ("USB_TX1_P", "USB_TX1_N", "USB_RX1_P", "USB_RX1_N")),
+        ("U3", 70, ("USB_TX2_P", "USB_TX2_N", "USB_RX2_P", "USB_RX2_N")),
+        ("U4", 120, ("USB_DP", "USB_DM", None, None)),
     ):
         s.add_symbol("RaspberryPiNAS_Parts:TPD4E05U06DQAR", ref, "TPD4E05U06DQAR", x, 158,
                      "RaspberryPiNAS:TPD4E05U06DQAR_DQA0010A", "https://www.ti.com/lit/ds/symlink/tpd4e05u06.pdf")
@@ -381,7 +387,7 @@ def build_schematic(local: dict[str, str]) -> str:
         s.connect(ref, esd_map)
 
     # JMS583 bridge. USB-C orientation mapping crosses receptacle TX into JMS RX and vice versa.
-    s.add_symbol("RaspberryPiNAS_Parts:JMicron_JMS583-QHFA0A", "U1", "JMS583-QHFA0A", 112, 88,
+    s.add_symbol("RaspberryPiNAS_Parts:JMicron_JMS583-QHFA0A", "U1", "JMS583-QHFA0A", 135, 88,
                  "RaspberryPiNAS:JMicron_JMS583-QHFA0A", "../libraries/datasheets/JMicron_JMS583_datasheet_rev2.1.pdf")
     jms = {
         # VDDREG and VBUS are USB-powered. LXO/L1 generate the 1.0 V core/analog rail.
@@ -406,72 +412,78 @@ def build_schematic(local: dict[str, str]) -> str:
         ("JMS_USB_TX1_P", "USB_RX1_P"), ("JMS_USB_TX1_N", "USB_RX1_N"),
         ("JMS_USB_TX2_P", "USB_RX2_P"), ("JMS_USB_TX2_N", "USB_RX2_N")), 1):
         ref = f"C{i}"
-        s.add_symbol("Device:C", ref, "100nF", 142 + (i - 1) * 12, 145,
+        s.add_symbol("Device:C", ref, "100nF", 260 + (i - 1) * 25, 177,
                      "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder")
         s.connect(ref, {"1": raw, "2": net})
 
-    s.add_symbol("RaspberryPiNAS_Parts:Abracon_ABM8-25.000MHZ-B2-T", "Y1", "ABM8-25.000MHZ-B2-T", 154, 48,
+    s.add_symbol("RaspberryPiNAS_Parts:Abracon_ABM8-25.000MHZ-B2-T", "Y1", "ABM8-25.000MHZ-B2-T", 190, 48,
                  "RaspberryPiNAS:Abracon_ABM8-25.000MHZ-B2-T", "../libraries/datasheets/Abracon_ABM8_datasheet.pdf")
     s.connect("Y1", {"1": "XTAL_IN", "2": "GND", "3": "XTAL_OUT", "4": "GND"})
     # ABM8 CL=18 pF. With 3 pF estimated combined pin/trace stray, equal 30 pF
     # capacitors give CL = (30 pF * 30 pF)/(30 pF + 30 pF) + 3 pF = 18 pF.
-    for ref, net, x in (("C24", "XTAL_IN", 146), ("C25", "XTAL_OUT", 162)):
-        s.add_symbol("Device:C", ref, "30pF C0G 5%", x, 62,
+    for ref, net, x in (("C24", "XTAL_IN", 175), ("C25", "XTAL_OUT", 205)):
+        s.add_symbol("Device:C", ref, "30pF C0G 5%", x, 65,
                      "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder")
         s.connect(ref, {"1": net, "2": "GND"})
-    s.add_symbol("Device:R", "R8", "510k", 178, 48,
+    s.add_symbol("Device:R", "R8", "510k", 230, 48,
                  "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     s.connect("R8", {"1": "XTAL_IN", "2": "XTAL_OUT"})
 
-    s.add_symbol("RaspberryPiNAS_Parts:W25Q16JVSNIQ", "U6", "W25Q16JVSNIQ TR", 158, 82,
+    s.add_symbol("RaspberryPiNAS_Parts:W25Q16JVSNIQ", "U6", "W25Q16JVSNIQ TR", 195, 85,
                  "RaspberryPiNAS:Winbond_W25Q16JVSNIQ_SOIC8_150mil",
                  "https://www.winbond.com/hq/support/documentation/levelOne.jsp?__locale=en&DocNo=DA00-W25Q16JV.1")
     s.connect("U6", {"1": "SPI_CS_N", "2": "SPI_MISO", "3": "FLASH_WP_N", "4": "GND",
                      "5": "SPI_MOSI", "6": "SPI_SCK", "7": "FLASH_HOLD_N", "8": "3V3_JMS"})
 
-    for ref, net, x in (("R4", "FLASH_WP_N", 174), ("R5", "FLASH_HOLD_N", 186)):
-        s.add_symbol("Device:R", ref, "10k", x, 96, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    for ref, net, x in (("R4", "FLASH_WP_N", 225), ("R5", "FLASH_HOLD_N", 250)):
+        s.add_symbol("Device:R", ref, "10k", x, 95, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
         s.connect(ref, {"1": net, "2": "3V3_JMS"})
 
-    s.add_symbol("Device:R", "R1", "12k 1%", 148, 112, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    s.add_symbol("Device:R", "R1", "12k 1%", 180, 115, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     s.connect("R1", {"1": "JMS_REXT", "2": "GND"})
-    s.add_symbol("Device:L", "L1", "4.7uH", 166, 112, "Inductor_SMD:L_1210_3225Metric_Pad1.42x2.65mm_HandSolder")
+    s.add_symbol("Device:L", "L1", "4.7uH", 215, 115, "Inductor_SMD:L_1210_3225Metric_Pad1.42x2.65mm_HandSolder")
     s.connect("L1", {"1": "JMS_LXO", "2": "1V0_JMS"})
     # RST is active low. The datasheet specifies 120-500 ms to reach 1.77 V.
     # For 3.3 V, 330k/1uF reaches 1.77 V at -RC*ln(1-1.77/3.3) = 254 ms nominal.
-    s.add_symbol("Device:R", "R2", "330k 1%", 184, 112, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    s.add_symbol("Device:R", "R2", "330k 1%", 180, 132, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     s.connect("R2", {"1": "JMS_RST_N", "2": "3V3_JMS"})
-    s.add_symbol("Device:C", "C26", "1uF X7R 10%", 196, 112,
+    s.add_symbol("Device:C", "C26", "1uF X7R 10%", 220, 132,
                  "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder")
     s.connect("C26", {"1": "JMS_RST_N", "2": "GND"})
-    s.add_symbol("Device:R", "R3", "1k", 154, 128, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
+    s.add_text("RESET RC", 170, 124, 1.0, True)
+    s.add_symbol("Device:R", "R3", "1k", 180, 149, "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     s.connect("R3", {"1": "3V3_JMS", "2": "ACT_LED_A"})
-    s.add_symbol("Device:LED", "D1", "ACTIVITY GREEN", 174, 128, "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder")
+    s.add_symbol("Device:LED", "D1", "ACTIVITY GREEN", 220, 149,
+                 "LED_SMD:LED_0603_1608Metric_Pad1.05x0.95mm_HandSolder", property_y_shift=-4)
     s.connect("D1", {"1": "ACT_LED_N", "2": "ACT_LED_A"})
+    s.add_text("GPIO4 ACTIVITY LED", 170, 141, 1.0, True)
 
     # GPIO4 is the default active-low activity LED output: 3V3 -> R3 -> LED A/K -> GPIO4.
     # GPIO6 receives a divided copy of USB VBUS for explicit cable-power sensing.
-    s.add_symbol("Device:R", "R9", "100k 1%", 190, 128,
+    s.add_symbol("Device:R", "R9", "100k 1%", 180, 166,
                  "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     s.connect("R9", {"1": "USB5V", "2": "USB_VBUS_SENSE"})
-    s.add_symbol("Device:R", "R10", "100k 1%", 202, 128,
+    s.add_symbol("Device:R", "R10", "100k 1%", 220, 166,
                  "Resistor_SMD:R_0603_1608Metric_Pad0.98x0.95mm_HandSolder")
     s.connect("R10", {"1": "USB_VBUS_SENSE", "2": "GND"})
+    s.add_text("USB VBUS SENSE", 170, 158, 1.0, True)
 
     # Representative local bypassing on both JMS-generated rails.
     for i, (value, net, x) in enumerate((
-        ("100nF", "3V3_JMS", 115), ("1uF", "3V3_JMS", 125), ("4.7uF", "3V3_JMS", 135),
-        ("100nF", "1V0_JMS", 145), ("1uF", "1V0_JMS", 155), ("4.7uF", "1V0_JMS", 165)), 1):
+        ("100nF", "3V3_JMS", 105), ("1uF", "3V3_JMS", 130), ("4.7uF", "3V3_JMS", 155),
+        ("100nF", "1V0_JMS", 180), ("1uF", "1V0_JMS", 205), ("4.7uF", "1V0_JMS", 230)), 1):
         ref = f"C{i + 4}"
-        s.add_symbol("Device:C", ref, value, x, 174, "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder")
+        s.add_symbol("Device:C", ref, value, x, 177, "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder")
         s.connect(ref, {"1": net, "2": "GND"})
+    s.add_text("JMS583 LOCAL DECOUPLING", 105, 169, 1.0, True)
+    s.add_text("USB TX AC COUPLING", 260, 169, 1.0, True)
 
-    s.add_text("JMS583 CORRECTIVE REVIEW APPLIED — SEE schematic_review.md", 92, 36, 1.3, True)
-    s.add_text("1V0 core/analog rail; EP and TME grounded; 330k/1uF reset; GPIO4 active-low LED; calculated 30pF crystal loads.", 92, 40, 1.0)
+    s.add_text("JMS583 CORRECTIVE REVIEW APPLIED — SEE schematic_review.md", 105, 36, 1.3, True)
+    s.add_text("1V0 core/analog rail; EP and TME grounded; 330k/1uF reset; GPIO4 active-low LED; calculated 30pF crystal loads.", 105, 40, 1.0)
     s.add_text("USB-C orientation: A-side TX1/B-side TX2 feed JMS RX1/RX2; JMS TX1/TX2 feed B-side RX1/A-side RX2.", 15, 136, 1.0)
 
     # M.2 M-key connector: PCIe lanes 0/1 only. M.2 PET is endpoint TX into JMS RX; PER is endpoint RX from JMS TX.
-    s.add_symbol("RaspberryPiNAS_Parts:TE_1-2199230-6", "J3", "1-2199230-6", 226, 88,
+    s.add_symbol("RaspberryPiNAS_Parts:TE_1-2199230-6", "J3", "1-2199230-6", 310, 88,
                  "RaspberryPiNAS:TE_1-2199230-6_M2_M_Key", "https://www.te.com/en/product-1-2199230-6.html")
     m2 = {
         "1": "GND", "2": "3V3_NVME", "3": "GND", "4": "3V3_NVME", "9": "GND",
@@ -484,16 +496,17 @@ def build_schematic(local: dict[str, str]) -> str:
         "SH1": "GND", "SH2": "GND",
     }
     s.connect("J3", m2)
-    s.add_text("M.2 M-Key — 2280 NVMe — PCIe x2 electrically", 195, 145, 1.5, True)
-    s.add_text("Lanes 2 and 3 intentionally unconnected. Connector pin names follow host-centric PET/PER convention.", 195, 150, 1.0)
+    s.add_text("M.2 M-Key — 2280 NVMe — PCIe x2 electrically", 270, 145, 1.5, True)
+    s.add_text("Lanes 2 and 3 intentionally unconnected. Connector pin names follow host-centric PET/PER convention.", 270, 150, 1.0)
 
     for i, (raw, net) in enumerate((
         ("JMS_PCIE_TX0_P", "PCIE_TX0_P"), ("JMS_PCIE_TX0_N", "PCIE_TX0_N"),
         ("JMS_PCIE_TX1_P", "PCIE_TX1_P"), ("JMS_PCIE_TX1_N", "PCIE_TX1_N")), 1):
         ref = f"C{i + 10}"
-        s.add_symbol("Device:C", ref, "220nF", 205 + (i - 1) * 13, 162,
+        s.add_symbol("Device:C", ref, "220nF", 285 + (i - 1) * 27, 165,
                      "Capacitor_SMD:C_0603_1608Metric_Pad1.08x0.95mm_HandSolder")
         s.connect(ref, {"1": raw, "2": net})
+    s.add_text("PCIe TX AC COUPLING", 285, 157, 1.0, True)
 
     # Split supplies: USB5V powers only JMS583 circuitry; AUX5V powers only the NVMe buck.
     # Grounds are common. AUX5V must be valid before enumeration if an SSD is expected.
